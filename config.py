@@ -10,16 +10,16 @@ from typing import List, Tuple
 # BIO标签名称：保存到BIO文件时使用的标签名（如果为None，则使用标签名称的大写形式）
 LABEL_CONFIG: List[Tuple[str, str, str]] = [
     ('white', '清除选中标注', None),  # 清除标签，不生成BIO标签
-    ('red',   '电压等级', 'VOLTAGE'),
-    ('yellow','一级间隔', 'INTERVAL_1'),
-    ('magenta',  '二级间隔', 'INTERVAL_2'),
-    ('Cyan',  '支路间隔', 'BRANCH'),
-    ('Lime',  '编号设备', 'DEVICE_ID'),
-    ('pink', '装置类型', 'DEVICE_TYPE'),
-    ('green', '套数',     'SET_COUNT'),
-    ('orange','装置型号', 'DEVICE_MODEL'),
-    ('purple','原子事件', 'ATOMIC_EVENT'),
-    ('brown', '补充描述', 'DESCRIPTION'),
+    ('red',   '人名', 'NAME'),
+    ('yellow','地名', 'ADDRESS'),
+    ('magenta',  '运动项目', 'SPORT'),
+    # ('Cyan',  'XXX', 'YYY'),
+    # ('Lime',  'XXX', 'YYY'),
+    # ('pink', 'XXX',  'YYY'),
+    # ('green', 'XXX', 'YYY'),
+    # ('orange','XXX', 'YYY'),
+    # ('purple','XXX', 'YYY'),
+    # ('brown', 'XXX', 'YYY'),
 ]
 
 # 界面配置
@@ -32,7 +32,6 @@ WINDOW_CONFIG = {
 
 # 输出配置
 OUTPUT_CONFIG = {
-    'output_file': 'output.csv',
-    'encoding': 'utf-8',
+    'encoding': 'utf-8',  # 输出文件的编码格式
 }
 

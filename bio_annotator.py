@@ -121,83 +121,6 @@ class BioAnnotator:
         
         return positions
     
-    def save_to_csv(self, output_file: Optional[str] = None) -> None:
-        """
-        将标注结果保存为CSV格式文件
-        第一列为原始文本字符，第二列为对应的标签
-        
-        Args:
-            output_file: 输出文件路径，如果为None则使用配置中的默认路径
-        """
-        if output_file is None:
-            output_file = OUTPUT_CONFIG['output_file']
-        
-        print("开始获取文本并处理...")
-        
-        # 获取所有文本内容
-        all_text = self.text_widget.get("1.0", "end")
-        lines = all_text.split('\n')
-        
-        # 初始化结果：每行都是'O'标签
-        result = [list('O' * len(line)) for line in lines]
-        
-        # 处理每个标签（跳过第一个清除标签）
-        for label_index in range(1, len(LABEL_CONFIG)):
-            color = LABEL_CONFIG[label_index][0]
-            bio_tag_name = LABEL_CONFIG[label_index][2] or LABEL_CONFIG[label_index][1].upper()
-            
-            tag_ranges = self.text_widget.tag_ranges(color)
-            
-            # 处理每个标注区域
-            for range_idx in range(0, len(tag_ranges), 2):
-                if range_idx + 1 >= len(tag_ranges):
-                    break
-                
-                start_index = tag_ranges[range_idx].string
-                end_index = tag_ranges[range_idx + 1].string
-                
-                try:
-                    start_row, start_col = map(int, start_index.split('.'))
-                    end_row, end_col = map(int, end_index.split('.'))
-                except ValueError:
-                    print(f"警告：无法解析位置 {start_index} 或 {end_index}")
-                    continue
-                
-                # 检查是否跨行
-                if start_row != end_row:
-                    print(f"警告：标注跨行！位置：{start_row}.{start_col} 到 {end_row}.{end_col}")
-                    continue
-                
-                # 转换为0-based索引
-                row_idx = start_row - 1
-                
-                # 检查索引有效性
-                if row_idx < 0 or row_idx >= len(result):
-                    continue
-                
-                if start_col >= len(result[row_idx]) or end_col > len(result[row_idx]):
-                    continue
-                
-                # 应用BIO标签
-                self._apply_bio_tags(result[row_idx], start_col, end_col, bio_tag_name)
-        
-        # 转换为CSV格式并保存
-        with open(output_file, 'w', encoding=OUTPUT_CONFIG['encoding'], newline='') as f:
-            writer = csv.writer(f)
-            # 写入表头
-            writer.writerow(['文本', '标签'])
-            
-            # 写入数据：每行文本的每个字符及其标签
-            for line_idx, line in enumerate(lines):
-                for char_idx, char in enumerate(line):
-                    if char_idx < len(result[line_idx]):
-                        label = result[line_idx][char_idx]
-                        writer.writerow([char, label])
-                # 每行结束后添加一个空行分隔（可选，如果需要的话可以注释掉）
-                # writer.writerow(['', ''])
-        
-        total_chars = sum(len(line) for line in lines)
-        print(f"保存完成！共处理 {len(lines)} 行，{total_chars} 个字符，已保存到 {output_file}")
     
     def save_to_bio(self, output_file: Optional[str] = None) -> None:
         """
@@ -309,6 +232,7 @@ class BioAnnotator:
     def load_from_csv(self, csv_file: str) -> Tuple[bool, str]:
         """
         从CSV文件加载文本和标注结果
+        支持UTF-8和GBK编码格式，自动检测编码
         
         Args:
             csv_file: CSV文件路径
@@ -316,8 +240,37 @@ class BioAnnotator:
         Returns:
             Tuple[bool, str]: (是否成功加载, 错误信息)
         """
+        # 尝试的编码列表：先尝试UTF-8，再尝试GBK
+        encodings = ['utf-8', 'gbk', 'gb2312']
+        file_encoding = None
+        
+        # 尝试使用不同的编码打开文件
+        for encoding in encodings:
+            try:
+                # 先尝试打开文件并读取第一行来验证编码
+                with open(csv_file, 'r', encoding=encoding) as f:
+                    # 尝试读取前几行来验证编码是否正确
+                    sample = f.read(1024)
+                    f.seek(0)
+                    # 如果能够成功读取，说明编码正确
+                    file_encoding = encoding
+                    break
+            except UnicodeDecodeError:
+                # 编码不匹配，尝试下一个
+                continue
+            except Exception as e:
+                # 如果是其他错误（如文件不存在），直接抛出
+                if isinstance(e, FileNotFoundError):
+                    raise
+                continue
+        
+        if file_encoding is None:
+            error_msg = f"无法读取文件，已尝试编码：{', '.join(encodings)}"
+            print(f"错误：{error_msg}")
+            return False, error_msg
+        
         try:
-            with open(csv_file, 'r', encoding=OUTPUT_CONFIG['encoding']) as f:
+            with open(csv_file, 'r', encoding=file_encoding) as f:
                 reader = csv.DictReader(f)
                 
                 # 检查列名
@@ -383,8 +336,11 @@ class BioAnnotator:
                             all_tags[-1].append(tags_str)
                     else:
                         # 格式不匹配，跳过
-                        print(f"警告：跳过格式不匹配的行：文本长度={len(text)}, 标签数量={len(tags)}")
-                        continue
+                        # print(f"警告：跳过格式不匹配的行：文本长度={len(text)}, 标签数量={len(tags)}")
+                        # continue
+                        #如果长度不等，则全部改成O
+                        all_lines.append(text)
+                        all_tags.append(['O' * len(text)])
                 
                 # 显示文本并应用标注
                 for line_idx, (line_text, line_tags) in enumerate(zip(all_lines, all_tags)):
@@ -452,7 +408,7 @@ class BioAnnotator:
                         else:
                             i += 1
                 
-                print(f"成功加载CSV文件：{csv_file}，共 {len(all_lines)} 行")
+                print(f"成功加载CSV文件：{csv_file}（编码：{file_encoding}），共 {len(all_lines)} 行")
                 return True, ""
                 
         except FileNotFoundError:
