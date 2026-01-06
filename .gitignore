@@ -3,3 +3,6 @@ test*
 .idea
 .venv
 __pycache__
+data/
+doc/
+
