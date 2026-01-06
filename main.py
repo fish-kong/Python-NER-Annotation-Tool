@@ -2,6 +2,7 @@
 BIO标注工具主程序
 基于tkinter的文本标注工具，支持将标注结果导出为BIO格式
 """
+import os
 import tkinter as tk
 from tkinter import Frame, Text, Scrollbar, Button, filedialog, messagebox
 from config import LABEL_CONFIG, WINDOW_CONFIG
@@ -86,6 +87,15 @@ class BioAnnotatorApp:
         )
         clear_button.grid(row=0, column=0, padx=10, pady=5)
         
+        # 第二排：清除所有匹配的标注按钮（根据当前选中文本，清除全文中所有匹配位置的标注）
+        clear_all_button = Button(
+            self.button_frame,
+            text="清除全文匹配",
+            command=lambda: self.annotator.annotate_all_matches('white'),
+            bg='lightgray'
+        )
+        clear_all_button.grid(row=1, column=0, padx=10, pady=5)
+        
         # 第一排：各标签的单一标注按钮
         # 第二排：各标签的全标注按钮
         for i in range(1, len(LABEL_CONFIG)):
@@ -128,7 +138,7 @@ class BioAnnotatorApp:
         save_button = Button(
             self.button_frame,
             text="保存文件为CSV",
-            command=self.annotator.save_to_bio,
+            command=self._save_csv_file,
             bg='lightblue'
         )
         save_button.grid(row=1, column=len(LABEL_CONFIG), padx=10, pady=5)
@@ -146,6 +156,28 @@ class BioAnnotatorApp:
                 messagebox.showerror("错误", error_msg or "加载CSV文件失败，请检查文件格式")
             else:
                 messagebox.showinfo("成功", f"成功加载CSV文件：{file_path}")
+    
+    def _save_csv_file(self) -> None:
+        """打开保存对话框，选择保存路径和文件名"""
+        # 确保默认保存目录存在
+        os.makedirs("result", exist_ok=True)
+
+        file_path = filedialog.asksaveasfilename(
+            title="保存标注结果为CSV文件",
+            defaultextension=".csv",
+            filetypes=[("CSV文件", "*.csv"), ("所有文件", "*.*")],
+            initialdir=os.path.abspath("result"),
+            initialfile="ner_result.csv"
+        )
+
+        if not file_path:
+            return
+
+        try:
+            self.annotator.save_to_bio(file_path)
+            messagebox.showinfo("成功", f"标注结果已保存到：\n{file_path}")
+        except Exception as e:
+            messagebox.showerror("错误", f"保存文件失败：{e}")
     
     def run(self) -> None:
         """运行应用主循环"""
